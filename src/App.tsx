@@ -1113,11 +1113,44 @@ function ProjectDetailView({ project, navigate }: { project: Project | null; nav
             <span className="w-8 h-px bg-[#8C7A6B]" /> Project Gallery <span className="w-8 h-px bg-[#8C7A6B]" />
           </p>
           <div className="columns-1 sm:columns-2 gap-4 space-y-4">
-            {project.gallery.map((img) => (
-              <div key={img.id} className="reveal break-inside-avoid overflow-hidden rounded-sm">
-                <img src={img.url} alt={`${project.title} — Gallery`} loading="lazy" className="w-full hover:scale-[1.02] transition-transform duration-700" onError={imgError} />
-              </div>
-            ))}
+            {project.gallery.map((item) => {
+              const ytId = getYouTubeId(item.url);
+              const isVideoFile = item.url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+              
+              return (
+                <div key={item.id} className="reveal break-inside-avoid overflow-hidden rounded-xl bg-gray-50 border border-gray-100 shadow-sm group relative">
+                  {ytId ? (
+                    <div className="aspect-video w-full overflow-hidden">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytId}?controls=1&rel=0`}
+                        title="Gallery Video"
+                        className="w-full h-full"
+                        style={{ border: 'none' }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : isVideoFile ? (
+                    <div className="aspect-video w-full overflow-hidden">
+                      <video
+                        src={item.url}
+                        controls
+                        className="w-full h-full object-cover"
+                        preload="metadata"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={item.url}
+                      alt={`${project.title} — Gallery`}
+                      loading="lazy"
+                      className="w-full hover:scale-[1.02] transition-transform duration-700"
+                      onError={imgError}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1622,9 +1655,12 @@ function AdminProjectsTab({ projects, setProjects }: any) {
     catch (e) { console.error(e); alert('Error deleting.'); }
   };
 
-  const addGalleryImage = (url: string) => {
+  const addGalleryItem = (url: string) => {
     if (!editing || !url.trim()) return;
-    setEditing({ ...editing, gallery: [...(editing.gallery || []), { id: Date.now(), type: 'image', url }] });
+    const isYt = getYouTubeId(url);
+    const isVideo = url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+    const type = isYt ? 'youtube' : (isVideo ? 'video' : 'image');
+    setEditing({ ...editing, gallery: [...(editing.gallery || []), { id: Date.now(), type, url }] });
   };
 
   const removeGalleryImage = (imgId: number) => {
@@ -1711,23 +1747,70 @@ function AdminProjectsTab({ projects, setProjects }: any) {
 
         {/* Gallery */}
         <div>
-          <label className={labelCls}>Gallery Images</label>
+          <label className={labelCls}>Gallery Items (Images & Videos)</label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-            {(editing.gallery || []).map((img) => (
-              <div key={img.id} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200">
-                <img src={img.url} alt="" className="w-full h-full object-cover" onError={imgError} />
-                <button onClick={() => removeGalleryImage(img.id)} className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
-                  <X size={13} />
-                </button>
-              </div>
-            ))}
+            {(editing.gallery || []).map((item) => {
+              const ytId = getYouTubeId(item.url);
+              const isVideoFile = item.url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+              return (
+                <div key={item.id} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                  {ytId ? (
+                    <div className="w-full h-full relative">
+                      <img src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`} alt="" className="w-full h-full object-cover" onError={imgError} />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Video size={20} className="text-white" /></div>
+                    </div>
+                  ) : isVideoFile ? (
+                    <div className="w-full h-full relative">
+                      <video src={item.url} className="w-full h-full object-cover" preload="metadata" />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center"><Video size={20} className="text-white" /></div>
+                    </div>
+                  ) : (
+                    <img src={item.url} alt="" className="w-full h-full object-cover" onError={imgError} />
+                  )}
+                  <button onClick={() => removeGalleryImage(item.id)} className="absolute top-1 right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow z-10">
+                    <X size={13} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
-          <ImageUploader
-            label=""
-            currentUrl=""
-            onUpload={(url) => { if (url) addGalleryImage(url); }}
-          />
-          <p className="text-[11px] text-gray-400 mt-2">Upload or paste a URL then it auto-adds to the gallery above.</p>
+          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+            <p className="text-xs font-semibold text-gray-500">ADD TO GALLERY</p>
+            <div className="flex flex-col md:flex-row gap-4 items-start">
+              <div className="w-full md:w-auto">
+                <ImageUploader
+                  label="Upload Image or Video File"
+                  currentUrl=""
+                  onUpload={(url) => { if (url) addGalleryItem(url); }}
+                />
+              </div>
+              <div className="flex-1 w-full space-y-2 border-t md:border-t-0 md:border-l border-gray-200 pt-4 md:pt-0 md:pl-4">
+                <label className={labelCls}>Or Paste YouTube / Video Link</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    id="newGalleryUrl"
+                    placeholder="https://www.youtube.com/watch?v=... or https://example.com/video.mp4"
+                    className="w-full p-2.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-[#8C7A6B] transition-all bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById('newGalleryUrl') as HTMLInputElement;
+                      if (input && input.value.trim()) {
+                        addGalleryItem(input.value.trim());
+                        input.value = '';
+                      }
+                    }}
+                    className="px-4 py-2 bg-[#1A1A1A] text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2">You can upload image/video files, or paste links to YouTube videos or direct video files.</p>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
