@@ -239,6 +239,11 @@ function useScrollReveal() {
   });
 }
 
+const getRouteFromPath = (path: string): string => {
+  const clean = path.replace(/^\/+/, '').split('/')[0];
+  return clean || 'home';
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  APP
 // ═══════════════════════════════════════════════════════════════════════════
@@ -251,7 +256,11 @@ export default function App() {
   const [ongoingProjects, setOngoingProjects] = useState<OngoingProject[]>(INITIAL_ONGOING);
   const [testimonials,    setTestimonials]    = useState<Testimonial[]>(INITIAL_TESTIMONIALS);
   const [teamMembers,     setTeamMembers]     = useState<TeamMember[]>(INITIAL_TEAM);
-  const [currentRoute,    setCurrentRoute]    = useState('home');
+  const [currentRoute,    setCurrentRoute]    = useState(() => {
+    const route = getRouteFromPath(window.location.pathname);
+    if (window.location.pathname.startsWith('/project/')) return 'project-detail';
+    return route;
+  });
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isAdminAuth,     setIsAdminAuth]     = useState(false);
   const [pageVisible,     setPageVisible]     = useState(true);
@@ -326,14 +335,66 @@ export default function App() {
     return () => unsubs.forEach((fn) => fn());
   }, [user]);
 
-  const navigate = useCallback((route: string, project: Project | null = null) => {
-    setPageVisible(false);
-    setTimeout(() => {
+  // Sync selectedProject when projects list changes or routes change
+  useEffect(() => {
+    if (window.location.pathname.startsWith('/project/')) {
+      const idStr = window.location.pathname.split('/').pop() || '';
+      const id = Number(idStr);
+      const found = projects.find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
+      if (found) setSelectedProject(found);
+    }
+  }, [projects]);
+
+  // Handle Popstate (browser back/forward button)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const route = getRouteFromPath(path);
+      if (path.startsWith('/project/')) {
+        const id = Number(path.split('/').pop() || '');
+        const found = projects.find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
+        setCurrentRoute('project-detail');
+        setSelectedProject(found);
+      } else {
+        setCurrentRoute(route);
+        setSelectedProject(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [projects]);
+
+  const navigate = useCallback((route: string, project: Project | null = null, snapMobile = false) => {
+    const isMobile = window.innerWidth < 768;
+    const shouldSnap = isMobile && snapMobile;
+
+    const performNavigation = () => {
       setCurrentRoute(route);
       setSelectedProject(project);
-      window.scrollTo({ top: 0 });
-      setPageVisible(true);
-    }, 300);
+
+      // Update URL path without reloading
+      let newPath = '/';
+      if (route === 'project-detail' && project) {
+        newPath = `/project/${project.id}`;
+      } else if (route !== 'home') {
+        newPath = `/${route}`;
+      }
+      if (window.location.pathname !== newPath) {
+        window.history.pushState(null, '', newPath);
+      }
+
+      window.scrollTo({ top: 0, behavior: shouldSnap ? 'auto' : 'smooth' });
+    };
+
+    if (shouldSnap) {
+      performNavigation();
+    } else {
+      setPageVisible(false);
+      setTimeout(() => {
+        performNavigation();
+        setPageVisible(true);
+      }, 300);
+    }
   }, []);
 
   const openWhatsApp = () => {
@@ -391,9 +452,8 @@ function LoadingScreen() {
     <div className="fixed inset-0 z-[9999] bg-[#1A1A1A] flex flex-col items-center justify-center">
       <div className="text-center animate-loading-pulse">
         <div className="w-12 h-px bg-[#8C7A6B] mx-auto mb-8" />
-        <p className="text-[9px] uppercase tracking-[0.5em] text-[#8C7A6B] mb-4">Est. Benin City</p>
         <h1 className="text-4xl font-serif text-white">Kelvin Armani</h1>
-        <p className="text-[10px] uppercase tracking-[0.3em] text-gray-500 mt-2">Enterprise &amp; Interiors</p>
+        <p className="text-[8px] uppercase tracking-[0.2em] text-gray-500 mt-3">Interiors and Painting Enterprise</p>
         <div className="w-12 h-px bg-[#8C7A6B] mx-auto mt-8" />
       </div>
       <div className="absolute bottom-10 flex gap-1.5">
@@ -428,8 +488,8 @@ function Navbar({ navigate, currentRoute }: { navigate: any; currentRoute: strin
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${ghost ? 'bg-transparent' : 'bg-white/95 backdrop-blur-lg border-b border-gray-100 shadow-sm'}`}>
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 flex items-center justify-between h-[72px] md:h-[88px]">
         <a href="#home" onClick={(e) => go(e, 'home')} className="flex-shrink-0 group">
-          <p className={`text-[8px] uppercase tracking-[0.35em] font-semibold leading-none mb-1 transition-colors duration-500 ${ghost ? 'text-white/70' : 'text-[#8C7A6B]'}`}>Est. Benin City</p>
-          <span className={`text-base md:text-xl font-serif font-medium tracking-tight leading-none transition-colors duration-500 ${ghost ? 'text-white' : 'text-[#1A1A1A]'}`}>Kelvin Armani</span>
+          <span className={`block text-base md:text-xl font-serif font-medium tracking-tight leading-none transition-colors duration-500 ${ghost ? 'text-white' : 'text-[#1A1A1A]'}`}>Kelvin Armani</span>
+          <p className={`block text-[7px] md:text-[8px] uppercase tracking-[0.25em] font-semibold leading-none mt-1 transition-colors duration-500 ${ghost ? 'text-white/70' : 'text-[#8C7A6B]'}`}>Interiors and Painting Enterprise</p>
         </a>
 
         <div className="hidden md:flex items-center gap-10">
@@ -473,15 +533,15 @@ function Navbar({ navigate, currentRoute }: { navigate: any; currentRoute: strin
 //  FOOTER
 // ═══════════════════════════════════════════════════════════════════════════
 function Footer({ content, navigate }: { content: SiteContent; navigate: any }) {
-  const go   = (e: React.MouseEvent, id: string) => { e.preventDefault(); navigate(id); };
+  const go   = (e: React.MouseEvent, id: string) => { e.preventDefault(); navigate(id, null, true); };
   const year = new Date().getFullYear();
   return (
     <footer className="bg-[#111111] text-white">
       <div className="max-w-7xl mx-auto px-6 sm:px-10 pt-16 pb-10 md:pt-20 md:pb-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 pb-12 border-b border-white/10">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.4em] text-[#8C7A6B] mb-3">Est. Benin City</p>
-            <h3 className="text-xl font-serif mb-4">{content?.brandName}</h3>
+            <h3 className="text-xl font-serif mb-1">{content?.brandName}</h3>
+            <p className="text-[8px] uppercase tracking-[0.2em] text-[#8C7A6B] mb-4">Interiors and Painting Enterprise</p>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs">Elevating everyday spaces into extraordinary places across Nigeria.</p>
           </div>
           <div>
