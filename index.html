@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1A1A1A" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Google Fonts — preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Default SEO — overridden dynamically by React -->
+    <title>Kelvin Armani Enterprise and Interiors | Luxury Interior Design Benin City</title>
+    <meta
+      name="description"
+      content="Kelvin Armani Enterprise and Interiors specializes in luxury and ultra-modern interior design for homes and offices in Benin City, Edo State, and nationwide."
+    />
+  </head>
+  <body>
+    <!--
+      Hidden form for Netlify build-time detection.
+      The React form POSTs to "/" with form-name="contact".
+    -->
+    <form name="contact" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text"  name="name" />
+      <input type="email" name="email" />
+      <input type="tel"   name="phone" />
+      <textarea           name="message"></textarea>
+    </form>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
