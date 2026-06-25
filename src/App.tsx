@@ -250,12 +250,12 @@ const getRouteFromPath = (path: string): string => {
 export default function App() {
   const [user,            setUser]            = useState<any>(null);
   const [loading,         setLoading]         = useState(true);
-  const [content,         setContent]         = useState<SiteContent>(INITIAL_CONTENT);
-  const [services,        setServices]        = useState<Service[]>(INITIAL_SERVICES);
-  const [projects,        setProjects]        = useState<Project[]>(INITIAL_PROJECTS);
-  const [ongoingProjects, setOngoingProjects] = useState<OngoingProject[]>(INITIAL_ONGOING);
-  const [testimonials,    setTestimonials]    = useState<Testimonial[]>(INITIAL_TESTIMONIALS);
-  const [teamMembers,     setTeamMembers]     = useState<TeamMember[]>(INITIAL_TEAM);
+  const [content,         setContent]         = useState<SiteContent | null>(null);
+  const [services,        setServices]        = useState<Service[] | null>(null);
+  const [projects,        setProjects]        = useState<Project[] | null>(null);
+  const [ongoingProjects, setOngoingProjects] = useState<OngoingProject[] | null>(null);
+  const [testimonials,    setTestimonials]    = useState<Testimonial[] | null>(null);
+  const [teamMembers,     setTeamMembers]     = useState<TeamMember[] | null>(null);
   const [currentRoute,    setCurrentRoute]    = useState(() => {
     const route = getRouteFromPath(window.location.pathname);
     if (window.location.pathname.startsWith('/project/')) return 'project-detail';
@@ -265,9 +265,62 @@ export default function App() {
   const [isAdminAuth,     setIsAdminAuth]     = useState(false);
   const [pageVisible,     setPageVisible]     = useState(true);
 
+  const [loadedKeys, setLoadedKeys] = useState<{ [key: string]: boolean }>(() => {
+    if (!FIREBASE_READY) {
+      return {
+        content: true,
+        services: true,
+        projects: true,
+        ongoingProjects: true,
+        testimonials: true,
+        teamMembers: true,
+      };
+    }
+    return {
+      content: false,
+      services: false,
+      projects: false,
+      ongoingProjects: false,
+      testimonials: false,
+      teamMembers: false,
+    };
+  });
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+
   useScrollReveal();
 
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 1400); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeElapsed(true), 1200);
+    const safetyTimer = setTimeout(() => {
+      setMinTimeElapsed(true);
+      setLoadedKeys({
+        content: true,
+        services: true,
+        projects: true,
+        ongoingProjects: true,
+        testimonials: true,
+        teamMembers: true,
+      });
+      setContent(prev => prev ?? INITIAL_CONTENT);
+      setServices(prev => prev ?? INITIAL_SERVICES);
+      setProjects(prev => prev ?? INITIAL_PROJECTS);
+      setOngoingProjects(prev => prev ?? INITIAL_ONGOING);
+      setTestimonials(prev => prev ?? INITIAL_TESTIMONIALS);
+      setTeamMembers(prev => prev ?? INITIAL_TEAM);
+    }, 4000);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(safetyTimer);
+    };
+  }, []);
+
+  const isFullyLoaded = Object.values(loadedKeys).every(Boolean);
+
+  useEffect(() => {
+    if (minTimeElapsed && isFullyLoaded) {
+      setLoading(false);
+    }
+  }, [minTimeElapsed, isFullyLoaded]);
 
   // Dynamic SEO
   useEffect(() => {
@@ -298,40 +351,106 @@ export default function App() {
   // Firebase Auth
   useEffect(() => {
     if (!FIREBASE_READY || !_auth) return;
-    signInAnonymously(_auth).catch((e) => console.warn('Auth:', e));
-    const unsub = onAuthStateChanged(_auth, setUser);
+    signInAnonymously(_auth).catch((e) => {
+      console.warn('Auth:', e);
+      setLoadedKeys({
+        content: true,
+        services: true,
+        projects: true,
+        ongoingProjects: true,
+        testimonials: true,
+        teamMembers: true,
+      });
+      setContent(prev => prev ?? INITIAL_CONTENT);
+      setServices(prev => prev ?? INITIAL_SERVICES);
+      setProjects(prev => prev ?? INITIAL_PROJECTS);
+      setOngoingProjects(prev => prev ?? INITIAL_ONGOING);
+      setTestimonials(prev => prev ?? INITIAL_TESTIMONIALS);
+      setTeamMembers(prev => prev ?? INITIAL_TEAM);
+    });
+    const unsub = onAuthStateChanged(_auth, (u) => {
+      setUser(u);
+      if (!u) {
+        setLoadedKeys({
+          content: true,
+          services: true,
+          projects: true,
+          ongoingProjects: true,
+          testimonials: true,
+          teamMembers: true,
+        });
+        setContent(prev => prev ?? INITIAL_CONTENT);
+        setServices(prev => prev ?? INITIAL_SERVICES);
+        setProjects(prev => prev ?? INITIAL_PROJECTS);
+        setOngoingProjects(prev => prev ?? INITIAL_ONGOING);
+        setTestimonials(prev => prev ?? INITIAL_TESTIMONIALS);
+        setTeamMembers(prev => prev ?? INITIAL_TEAM);
+      }
+    });
     return () => unsub();
   }, []);
 
   // Firestore real-time listeners
   useEffect(() => {
-    if (!user || !_db) return;
+    if (!FIREBASE_READY || !_db || !user) return;
     const unsubs: (() => void)[] = [];
-    unsubs.push(onSnapshot(doc(_db, 'websiteContent', 'main'), (s) => { if (s.exists()) setContent({ ...INITIAL_CONTENT, ...s.data() } as SiteContent); }, console.error));
-    const col = (name: string, setter: (v: any[]) => void, asc = false) =>
-      onSnapshot(collection(_db, name), (s) => {
-        if (!s.empty) {
-          setter(
-            s.docs.map((d) => {
-              const data = d.data();
-              const numId = Number(d.id);
-              return { ...data, id: isNaN(numId) ? d.id : numId };
-            }).sort((a: any, b: any) => {
-              const idA = a.id;
-              const idB = b.id;
-              if (typeof idA === 'number' && typeof idB === 'number') {
-                return asc ? idA - idB : idB - idA;
-              }
-              return asc ? String(idA).localeCompare(String(idB)) : String(idB).localeCompare(String(idA));
-            })
-          );
+
+    unsubs.push(
+      onSnapshot(
+        doc(_db, 'websiteContent', 'main'),
+        (s) => {
+          if (s.exists()) {
+            setContent({ ...INITIAL_CONTENT, ...s.data() } as SiteContent);
+          } else {
+            setContent(prev => prev ?? INITIAL_CONTENT);
+          }
+          setLoadedKeys((prev) => ({ ...prev, content: true }));
+        },
+        (err) => {
+          console.error('Content fetch error:', err);
+          setContent(prev => prev ?? INITIAL_CONTENT);
+          setLoadedKeys((prev) => ({ ...prev, content: true }));
         }
-      }, console.error);
-    unsubs.push(col('services',        setServices,        true));
-    unsubs.push(col('projects',        setProjects));
-    unsubs.push(col('ongoingProjects', setOngoingProjects));
-    unsubs.push(col('testimonials',    setTestimonials));
-    unsubs.push(col('teamMembers',     setTeamMembers,     true));
+      )
+    );
+
+    const col = (name: string, setter: React.Dispatch<React.SetStateAction<any>>, key: string, fallback: any, asc = false) =>
+      onSnapshot(
+        collection(_db, name),
+        (s) => {
+          if (!s.empty) {
+            setter(
+              s.docs.map((d) => {
+                const data = d.data();
+                const numId = Number(d.id);
+                return { ...data, id: isNaN(numId) ? d.id : numId };
+              }).sort((a: any, b: any) => {
+                const idA = a.id;
+                const idB = b.id;
+                if (typeof idA === 'number' && typeof idB === 'number') {
+                  return asc ? idA - idB : idB - idA;
+                }
+                return asc ? String(idA).localeCompare(String(idB)) : String(idB).localeCompare(String(idA));
+              })
+            );
+          } else {
+            setter([]);
+          }
+          setLoadedKeys((prev) => ({ ...prev, [key]: true }));
+        },
+        (err) => {
+          console.error(`Collection ${name} fetch error:`, err);
+          setter(prev => prev ?? fallback);
+          setLoadedKeys((prev) => ({ ...prev, [key]: true }));
+        }
+      );
+
+    unsubs.push(col('services',        setServices,        'services',        INITIAL_SERVICES,        true));
+    unsubs.push(col('projects',        setProjects,        'projects',        INITIAL_PROJECTS));
+    unsubs.push(col('ongoingProjects', setOngoingProjects, 'ongoingProjects', INITIAL_ONGOING));
+    unsubs.push(col('testimonials',    setTestimonials,    'testimonials',    INITIAL_TESTIMONIALS));
+    unsubs.push(col('teamMembers',     setTeamMembers,     'teamMembers',     INITIAL_TEAM,            true));
+
     return () => unsubs.forEach((fn) => fn());
   }, [user]);
 
@@ -340,7 +459,7 @@ export default function App() {
     if (window.location.pathname.startsWith('/project/')) {
       const idStr = window.location.pathname.split('/').pop() || '';
       const id = Number(idStr);
-      const found = projects.find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
+      const found = (projects || []).find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
       if (found) setSelectedProject(found);
     }
   }, [projects]);
@@ -352,7 +471,7 @@ export default function App() {
       const route = getRouteFromPath(path);
       if (path.startsWith('/project/')) {
         const id = Number(path.split('/').pop() || '');
-        const found = projects.find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
+        const found = (projects || []).find(p => p.id === id) || INITIAL_PROJECTS.find(p => p.id === id) || null;
         setCurrentRoute('project-detail');
         setSelectedProject(found);
       } else {
@@ -409,28 +528,28 @@ export default function App() {
       <Navbar navigate={navigate} currentRoute={currentRoute} />
 
       <main className={`flex-grow page-transition ${pageVisible ? 'page-visible' : 'page-hidden'}`}>
-        {currentRoute === 'home'           && <HomeView navigate={navigate} content={content} projects={projects} ongoingProjects={ongoingProjects} testimonials={testimonials} />}
-        {currentRoute === 'about'          && <AboutView content={content} teamMembers={teamMembers} />}
-        {currentRoute === 'services'       && <ServicesView services={services} navigate={navigate} content={content} />}
-        {currentRoute === 'portfolio'      && <PortfolioView projects={projects} navigate={navigate} content={content} />}
+        {currentRoute === 'home'           && <HomeView navigate={navigate} content={content || INITIAL_CONTENT} projects={projects || []} ongoingProjects={ongoingProjects || []} testimonials={testimonials || []} />}
+        {currentRoute === 'about'          && <AboutView content={content || INITIAL_CONTENT} teamMembers={teamMembers || []} />}
+        {currentRoute === 'services'       && <ServicesView services={services || []} navigate={navigate} content={content || INITIAL_CONTENT} />}
+        {currentRoute === 'portfolio'      && <PortfolioView projects={projects || []} navigate={navigate} content={content || INITIAL_CONTENT} />}
         {currentRoute === 'project-detail' && <ProjectDetailView project={selectedProject} navigate={navigate} />}
-        {currentRoute === 'contact'        && <ContactView content={content} />}
+        {currentRoute === 'contact'        && <ContactView content={content || INITIAL_CONTENT} />}
         {currentRoute === 'admin'          && (
           isAdminAuth
             ? <AdminDashboard
-                content={content}        setContent={setContent}
-                services={services}      setServices={setServices}
-                projects={projects}      setProjects={setProjects}
-                ongoingProjects={ongoingProjects} setOngoingProjects={setOngoingProjects}
-                testimonials={testimonials}       setTestimonials={setTestimonials}
-                teamMembers={teamMembers}         setTeamMembers={setTeamMembers}
+                content={content || INITIAL_CONTENT}        setContent={setContent}
+                services={services || []}      setServices={setServices}
+                projects={projects || []}      setProjects={setProjects}
+                ongoingProjects={ongoingProjects || []} setOngoingProjects={setOngoingProjects}
+                testimonials={testimonials || []}       setTestimonials={setTestimonials}
+                teamMembers={teamMembers || []}         setTeamMembers={setTeamMembers}
                 setIsAdminAuth={setIsAdminAuth}
               />
             : <AdminLogin setIsAdminAuth={setIsAdminAuth} />
         )}
       </main>
 
-      <Footer content={content} navigate={navigate} />
+      <Footer content={content || INITIAL_CONTENT} navigate={navigate} />
 
       {/* WhatsApp FAB */}
       <button
