@@ -77,7 +77,7 @@ interface SiteContent {
 interface Service      { id: number; title: string; desc: string; detailedDesc: string; price: string; image: string; }
 interface GalleryItem  { id: number; type: string; url: string; }
 interface Project {
-  id: number; title: string; location: string; desc: string; problem: string;
+  id: number; title: string; location: string; category?: string; year?: string; desc: string; problem: string;
   solution: string; mediaType: 'image' | 'youtube'; mediaUrl: string;
   videoOrientation: 'landscape' | 'portrait';
   gallery: GalleryItem[];
@@ -139,8 +139,8 @@ const INITIAL_SERVICES: Service[] = [
 ];
 
 const INITIAL_PROJECTS: Project[] = [
-  { id: 103, title: 'GRA Luxury Penthouse', location: 'GRA, Benin City', desc: 'A complete redesign of a luxury penthouse in the heart of Benin City, focusing on natural light, neutral tones, and open-plan living.', problem: 'The client felt the original space was too dark and cramped, lacking the flow needed for entertaining high-profile guests.', solution: 'We removed non-structural partitions, introduced a lighter palette, and sourced low-profile modern furniture to dramatically expand the perception of space.', mediaType: 'image', mediaUrl: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&q=80&w=1200', videoOrientation: 'landscape', gallery: [{ id: 1, type: 'image', url: 'https://images.unsplash.com/photo-1600607687644-aac4c1566f03?auto=format&fit=crop&q=80&w=800' }, { id: 2, type: 'image', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800' }] },
-  { id: 102, title: 'Lekki Coastal Villa', location: 'Lekki Phase 1, Lagos', desc: 'Bringing a sophisticated, airy tropical feel to a family home nestled in the vibrant heart of Lekki.', problem: "The home felt outdated with heavy woods and dark fabrics that clashed with the warm Nigerian climate and the family's modern lifestyle.", solution: 'We implemented organic textures, light oak woods, and subtle breezy accents to seamlessly blend the indoor space with its tropical environment.', mediaType: 'image', mediaUrl: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&q=80&w=1200', videoOrientation: 'landscape', gallery: [{ id: 1, type: 'image', url: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=800' }] },
+  { id: 103, title: 'GRA Luxury Penthouse', location: 'GRA, Benin City', category: 'Interior Architecture', year: '2024', desc: 'A complete redesign of a luxury penthouse in the heart of Benin City, focusing on natural light, neutral tones, and open-plan living.', problem: 'The client felt the original space was too dark and cramped, lacking the flow needed for entertaining high-profile guests.', solution: 'We removed non-structural partitions, introduced a lighter palette, and sourced low-profile modern furniture to dramatically expand the perception of space.', mediaType: 'image', mediaUrl: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&q=80&w=1200', videoOrientation: 'landscape', gallery: [{ id: 1, type: 'image', url: 'https://images.unsplash.com/photo-1600607687644-aac4c1566f03?auto=format&fit=crop&q=80&w=800' }, { id: 2, type: 'image', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=800' }] },
+  { id: 102, title: 'Lekki Coastal Villa', location: 'Lekki Phase 1, Lagos', category: 'Interior Architecture', year: '2024', desc: 'Bringing a sophisticated, airy tropical feel to a family home nestled in the vibrant heart of Lekki.', problem: "The home felt outdated with heavy woods and dark fabrics that clashed with the warm Nigerian climate and the family's modern lifestyle.", solution: 'We implemented organic textures, light oak woods, and subtle breezy accents to seamlessly blend the indoor space with its tropical environment.', mediaType: 'image', mediaUrl: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&q=80&w=1200', videoOrientation: 'landscape', gallery: [{ id: 1, type: 'image', url: 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=800' }] },
 ];
 
 const INITIAL_ONGOING: OngoingProject[] = [
@@ -383,7 +383,7 @@ export default function App() {
         window.history.pushState(null, '', newPath);
       }
 
-      window.scrollTo({ top: 0, behavior: shouldSnap ? 'auto' : 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'auto' });
     };
 
     if (shouldSnap) {
@@ -1118,7 +1118,7 @@ function ProjectDetailView({ project, navigate }: { project: Project | null; nav
       <div className="bg-[#111111] text-white border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 md:px-14 py-8 md:py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800">
-            {[{ l: 'Location', v: project.location || 'Undisclosed', a: false }, { l: 'Category', v: 'Interior Architecture', a: false }, { l: 'Year', v: '2024', a: false }, { l: 'Status', v: 'Completed', a: true }].map((item, i) => (
+            {[{ l: 'Location', v: project.location || 'Undisclosed', a: false }, { l: 'Category', v: project.category || 'Interior Architecture', a: false }, { l: 'Year', v: project.year || '2024', a: false }, { l: 'Status', v: 'Completed', a: true }].map((item, i) => (
               <div key={i} className={`${i > 0 ? 'pl-6' : ''} pr-6`}>
                 <p className="text-gray-400 text-[9px] uppercase tracking-widest mb-2 font-semibold">{item.l}</p>
                 <p className={`font-serif text-sm md:text-base ${item.a ? 'text-[#8C7A6B]' : 'text-white'}`}>{item.v}</p>
@@ -1240,6 +1240,7 @@ function ContactView({ content }: { content: SiteContent }) {
       });
       setSubmitted(true);
       setForm({ name: '', email: '', phone: '', message: '' });
+      window.scrollTo({ top: 0, behavior: 'auto' });
     } catch {
       alert('Something went wrong. Please contact us directly.');
     } finally { setSending(false); }
@@ -1407,7 +1408,7 @@ function AdminDashboard({ content, setContent, services, setServices, projects, 
       {/* Tab bar — horizontal scroll on mobile */}
       <div className="flex gap-1 overflow-x-auto pb-0 mb-0 hide-scrollbar">
         {TABS.map(({ id, label }) => (
-          <button key={id} onClick={() => setTab(id)}
+          <button key={id} onClick={() => { setTab(id); window.scrollTo({ top: 0, behavior: 'auto' }); }}
             className={`px-5 py-3 text-sm font-semibold rounded-t-xl whitespace-nowrap transition-colors shrink-0 ${tab === id ? 'bg-white text-[#1A1A1A] border border-gray-100 border-b-white relative z-10' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
             {label}
           </button>
@@ -1450,7 +1451,12 @@ function AdminHeroTab({ content, setContent }: any) {
   const save = async () => {
     if (!_db) return alert('Firebase not connected.');
     setSaving(true);
-    try { await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft }); setContent((c: any) => ({ ...c, ...draft })); alert('Saved!'); }
+    try {
+      await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft });
+      setContent((c: any) => ({ ...c, ...draft }));
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      alert('Saved!');
+    }
     catch (e) { console.error(e); alert('Save failed.'); }
     finally { setSaving(false); }
   };
@@ -1476,7 +1482,12 @@ function AdminAboutTab({ content, setContent }: any) {
   const save = async () => {
     if (!_db) return alert('Firebase not connected.');
     setSaving(true);
-    try { await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft }); setContent((c: any) => ({ ...c, ...draft })); alert('Saved!'); }
+    try {
+      await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft });
+      setContent((c: any) => ({ ...c, ...draft }));
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      alert('Saved!');
+    }
     catch (e) { console.error(e); alert('Save failed.'); }
     finally { setSaving(false); }
   };
@@ -1501,7 +1512,12 @@ function AdminContactTab({ content, setContent }: any) {
   const save = async () => {
     if (!_db) return alert('Firebase not connected.');
     setSaving(true);
-    try { await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft }); setContent((c: any) => ({ ...c, ...draft })); alert('Saved!'); }
+    try {
+      await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft });
+      setContent((c: any) => ({ ...c, ...draft }));
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      alert('Saved!');
+    }
     catch (e) { console.error(e); alert('Save failed.'); }
     finally { setSaving(false); }
   };
@@ -1531,6 +1547,7 @@ function AdminPhilosophyTab({ content, setContent }: any) {
     try {
       await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft });
       setContent((c: any) => ({ ...c, ...draft }));
+      window.scrollTo({ top: 0, behavior: 'auto' });
       alert('Saved!');
     } catch (e) {
       console.error(e);
@@ -1610,6 +1627,7 @@ function AdminTitlesTab({ content, setContent }: any) {
     try {
       await setDoc(doc(_db, 'websiteContent', 'main'), { ...content, ...draft });
       setContent((c: any) => ({ ...c, ...draft }));
+      window.scrollTo({ top: 0, behavior: 'auto' });
       alert('Saved!');
     } catch (e) {
       console.error(e);
@@ -1698,13 +1716,17 @@ function AdminProjectsTab({ projects, setProjects }: any) {
   const [editing, setEditing] = useState<Project | null>(null);
   const [saving,  setSaving]  = useState(false);
 
-  const defaultProject: Project = { id: 0, title: '', location: '', desc: '', problem: '', solution: '', mediaType: 'image', mediaUrl: '', videoOrientation: 'landscape', gallery: [] };
+  const defaultProject: Project = { id: 0, title: '', location: '', category: '', year: '', desc: '', problem: '', solution: '', mediaType: 'image', mediaUrl: '', videoOrientation: 'landscape', gallery: [] };
 
   const save = async (item: Project) => {
     if (!_db) return alert('Firebase not connected.');
     const id = item.id || Date.now();
     setSaving(true);
-    try { await setDoc(doc(_db, 'projects', id.toString()), { ...item, id }); setEditing(null); }
+    try {
+      await setDoc(doc(_db, 'projects', id.toString()), { ...item, id });
+      setEditing(null);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     catch (e) { console.error(e); alert('Error saving.'); }
     finally { setSaving(false); }
   };
@@ -1733,12 +1755,14 @@ function AdminProjectsTab({ projects, setProjects }: any) {
       <div className="space-y-7">
         <div className="flex justify-between items-center border-b border-gray-100 pb-4">
           <h3 className="text-xl font-serif">{editing.id ? 'Edit Project' : 'Add New Project'}</h3>
-          <button onClick={() => setEditing(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X size={16} /></button>
+          <button onClick={() => { setEditing(null); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X size={16} /></button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div><label className={labelCls}>Project Title</label><input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className={inputCls} /></div>
           <div><label className={labelCls}>Location</label><input value={editing.location} onChange={(e) => setEditing({ ...editing, location: e.target.value })} className={inputCls} placeholder="e.g. GRA, Benin City" /></div>
+          <div><label className={labelCls}>Project Category</label><input value={editing.category || ''} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className={inputCls} placeholder="e.g. Interior Architecture" /></div>
+          <div><label className={labelCls}>Year Done</label><input value={editing.year || ''} onChange={(e) => setEditing({ ...editing, year: e.target.value })} className={inputCls} placeholder="e.g. 2024" /></div>
         </div>
         <div><label className={labelCls}>Short Description</label><textarea rows={2} value={editing.desc} onChange={(e) => setEditing({ ...editing, desc: e.target.value })} className={inputCls} /></div>
         <div><label className={labelCls}>The Challenge (problem)</label><textarea rows={3} value={editing.problem} onChange={(e) => setEditing({ ...editing, problem: e.target.value })} className={inputCls} /></div>
@@ -1874,7 +1898,7 @@ function AdminProjectsTab({ projects, setProjects }: any) {
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <button onClick={() => setEditing(null)} className="px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+          <button onClick={() => { setEditing(null); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
           <button onClick={() => save(editing)} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-[#8C7A6B] text-white text-sm font-bold rounded-lg hover:bg-[#736356] transition-colors disabled:opacity-50">
             <Save size={14} /> {saving ? 'Saving…' : 'Save Project'}
           </button>
@@ -1887,7 +1911,7 @@ function AdminProjectsTab({ projects, setProjects }: any) {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-serif">Manage Projects</h3>
-        <button onClick={() => setEditing(defaultProject)} className="flex items-center gap-2 px-4 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] transition-colors">
+        <button onClick={() => { setEditing(defaultProject); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="flex items-center gap-2 px-4 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] transition-colors">
           <Plus size={14} /> Add Project
         </button>
       </div>
@@ -1910,7 +1934,7 @@ function AdminProjectsTab({ projects, setProjects }: any) {
               </div>
             </div>
             <div className="flex gap-1 shrink-0">
-              <button onClick={() => setEditing(item)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={15} /></button>
+              <button onClick={() => { setEditing(item); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={15} /></button>
               <button onClick={() => del(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={15} /></button>
             </div>
           </div>
@@ -1936,7 +1960,11 @@ function AdminCollectionTab({ collectionName, items, setItems, defaultItem, fiel
     if (!_db) return alert('Firebase not connected.');
     const id = item.id || Date.now();
     setSaving(true);
-    try { await setDoc(doc(_db, collectionName, id.toString()), { ...item, id }); setEditing(null); }
+    try {
+      await setDoc(doc(_db, collectionName, id.toString()), { ...item, id });
+      setEditing(null);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
     catch (e) { console.error(e); alert('Error saving.'); }
     finally { setSaving(false); }
   };
@@ -1952,7 +1980,7 @@ function AdminCollectionTab({ collectionName, items, setItems, defaultItem, fiel
       <div className="space-y-6">
         <div className="flex justify-between items-center border-b border-gray-100 pb-4">
           <h3 className="text-xl font-serif">{editing.id ? 'Edit Item' : 'Add New Item'}</h3>
-          <button onClick={() => setEditing(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X size={16} /></button>
+          <button onClick={() => { setEditing(null); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"><X size={16} /></button>
         </div>
         <div className="space-y-5">
           {fields.map(({ key, label, type = 'text' }) =>
@@ -1966,7 +1994,7 @@ function AdminCollectionTab({ collectionName, items, setItems, defaultItem, fiel
           )}
         </div>
         <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <button onClick={() => setEditing(null)} className="px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+          <button onClick={() => { setEditing(null); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="px-5 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
           <button onClick={() => save(editing)} disabled={saving} className="flex items-center gap-2 px-6 py-2.5 bg-[#8C7A6B] text-white text-sm font-bold rounded-lg hover:bg-[#736356] transition-colors disabled:opacity-50">
             <Save size={14} /> {saving ? 'Saving…' : 'Save Item'}
           </button>
@@ -1979,7 +2007,7 @@ function AdminCollectionTab({ collectionName, items, setItems, defaultItem, fiel
     <div>
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-xl font-serif capitalize">Manage {collectionName.replace(/([A-Z])/g, ' $1')}</h3>
-        <button onClick={() => setEditing({ ...defaultItem })} className="flex items-center gap-2 px-4 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] transition-colors">
+        <button onClick={() => { setEditing({ ...defaultItem }); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="flex items-center gap-2 px-4 py-2.5 bg-[#1A1A1A] text-white text-sm font-semibold rounded-lg hover:bg-[#333] transition-colors">
           <Plus size={14} /> Add New
         </button>
       </div>
@@ -2002,7 +2030,7 @@ function AdminCollectionTab({ collectionName, items, setItems, defaultItem, fiel
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
-                <button onClick={() => setEditing({ ...item })} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={15} /></button>
+                <button onClick={() => { setEditing({ ...item }); window.scrollTo({ top: 0, behavior: 'auto' }); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={15} /></button>
                 <button onClick={() => del(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={15} /></button>
               </div>
             </div>
