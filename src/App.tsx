@@ -7,7 +7,6 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 // ─── Firebase ──────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -22,14 +21,12 @@ const firebaseConfig = {
 const FIREBASE_READY = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 let _auth:    any = null;
 let _db:      any = null;
-let _storage: any = null;
 
 if (FIREBASE_READY) {
   try {
     const _app = initializeApp(firebaseConfig);
     _auth    = getAuth(_app);
     _db      = getFirestore(_app);
-    _storage = getStorage(_app);
   } catch (e) {
     console.warn('Firebase init failed — running in static mode.', e);
   }
@@ -169,22 +166,54 @@ function ImageUploader({ currentUrl, onUpload, label }: { currentUrl: string; on
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!_storage) { alert('Firebase Storage not connected. Paste a URL instead.'); return; }
+
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      alert('Cloudinary config missing. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
+      return;
+    }
+
     setUploading(true);
-    const sRef = storageRef(_storage, `images/${Date.now()}_${file.name}`);
-    const task = uploadBytesResumable(sRef, file);
-    task.on(
-      'state_changed',
-      (snap) => setProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      (err)  => { console.error(err); setUploading(false); alert('Upload failed: ' + err.message); },
-      async () => {
-        const url = await getDownloadURL(task.snapshot.ref);
-        onUpload(url);
-        setUploading(false);
-        setProgress(0);
-        if (inputRef.current) inputRef.current.value = '';
+    setProgress(0);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/upload`, true);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setProgress(percent);
       }
-    );
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        const response = JSON.parse(xhr.responseText);
+        onUpload(response.secure_url);
+      } else {
+        console.error('Upload failed:', xhr.responseText);
+        alert('Upload failed: ' + xhr.statusText);
+      }
+      setUploading(false);
+      setProgress(0);
+      if (inputRef.current) inputRef.current.value = '';
+    };
+
+    xhr.onerror = () => {
+      console.error('Upload error');
+      alert('Upload failed due to a network error.');
+      setUploading(false);
+      setProgress(0);
+      if (inputRef.current) inputRef.current.value = '';
+    };
+
+    xhr.send(formData);
   };
 
   return (
