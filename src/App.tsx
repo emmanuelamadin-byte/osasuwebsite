@@ -5,7 +5,7 @@ import {
   MessageCircle, Save, Image as ImageIcon, Upload,
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 // ─── Firebase ──────────────────────────────────────────────────────────────
@@ -33,7 +33,6 @@ if (FIREBASE_READY) {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
-const ADMIN_PIN   = import.meta.env.VITE_ADMIN_PIN || '1234';
 const PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect fill='%23EAE5DF' width='800' height='600'/%3E%3C/svg%3E`;
 
 const getYouTubeId = (url?: string): string | null => {
@@ -380,8 +379,20 @@ export default function App() {
   // Firebase Auth
   useEffect(() => {
     if (!FIREBASE_READY || !_auth) return;
-    signInAnonymously(_auth).catch((e) => {
-      console.warn('Auth failed:', e);
+    const unsub = onAuthStateChanged(_auth, (u) => {
+      setUser(u);
+      if (u) {
+        setIsAdminAuth(true);
+      } else {
+        setIsAdminAuth(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Firestore real-time listeners
+  useEffect(() => {
+    if (!FIREBASE_READY || !_db) {
       setLoadedKeys({
         content: true,
         services: true,
@@ -396,14 +407,8 @@ export default function App() {
       setOngoingProjects(prev => prev ?? INITIAL_ONGOING);
       setTestimonials(prev => prev ?? INITIAL_TESTIMONIALS);
       setTeamMembers(prev => prev ?? INITIAL_TEAM);
-    });
-    const unsub = onAuthStateChanged(_auth, setUser);
-    return () => unsub();
-  }, []);
-
-  // Firestore real-time listeners
-  useEffect(() => {
-    if (!FIREBASE_READY || !_db || !user) return;
+      return;
+    }
     const unsubs: (() => void)[] = [];
 
     unsubs.push(
@@ -463,7 +468,7 @@ export default function App() {
     unsubs.push(col('teamMembers',     setTeamMembers,     'teamMembers',     INITIAL_TEAM,            true));
 
     return () => unsubs.forEach((fn) => fn());
-  }, [user]);
+  }, []);
 
   // Sync selectedProject when projects list changes or routes change
   useEffect(() => {
@@ -1470,33 +1475,68 @@ function ContactView({ content }: { content: SiteContent }) {
 //  ADMIN LOGIN
 // ═══════════════════════════════════════════════════════════════════════════
 function AdminLogin({ setIsAdminAuth }: { setIsAdminAuth: (v: boolean) => void }) {
-  const [pin,   setPin]   = useState('');
-  const [error, setError] = useState('');
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === ADMIN_PIN) setIsAdminAuth(true);
-    else { setError('Invalid PIN. Please try again.'); setPin(''); }
+    if (!FIREBASE_READY || !_auth) {
+      setError('Firebase is not configured.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await signInWithEmailAndPassword(_auth, email, password);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Invalid email or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 bg-[#FAF9F7]">
-      <div className="max-w-sm w-full text-center">
+      <div className="max-w-sm w-full text-left">
         <div className="w-16 h-16 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center mx-auto mb-8">
           <Lock size={22} className="text-[#8C7A6B]" />
         </div>
-        <h2 className="text-3xl font-serif mb-2">Admin Access</h2>
-        <p className="text-gray-500 text-sm mb-10">Enter your 4-digit security PIN to continue.</p>
+        <h2 className="text-3xl font-serif text-center mb-2">Admin Access</h2>
+        <p className="text-gray-500 text-sm text-center mb-10">Sign in with your admin credentials to continue.</p>
         <form onSubmit={submit} className="space-y-4">
-          <input
-            type="password" value={pin} autoFocus maxLength={4}
-            onChange={(e) => { setPin(e.target.value); setError(''); }}
-            className="w-full text-center text-3xl tracking-[1em] px-4 py-5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#8C7A6B] transition-all"
-            placeholder="••••"
-          />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" className="w-full py-4 bg-[#1A1A1A] text-white text-[10px] uppercase tracking-[0.35em] font-bold hover:bg-[#8C7A6B] transition-colors rounded-xl">
-            Unlock Dashboard
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
+            <input
+              type="email"
+              value={email}
+              autoFocus
+              required
+              onChange={(e) => { setEmail(e.target.value); setError(''); }}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#8C7A6B] transition-all text-sm"
+              placeholder="admin@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              required
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#8C7A6B] transition-all text-sm"
+              placeholder="••••••••"
+            />
+          </div>
+          {error && <p className="text-red-500 text-xs mt-2 text-center">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-[#1A1A1A] text-white text-[10px] uppercase tracking-[0.35em] font-bold hover:bg-[#8C7A6B] transition-colors rounded-xl disabled:opacity-50 mt-4"
+          >
+            {loading ? 'Signing In...' : 'Unlock Dashboard'}
           </button>
         </form>
       </div>
@@ -1529,7 +1569,7 @@ function AdminDashboard({ content, setContent, services, setServices, projects, 
           <h1 className="text-3xl font-serif">Admin Dashboard</h1>
           <p className="text-gray-500 text-sm mt-1">Edit every section of your website in real-time.</p>
         </div>
-        <button onClick={() => setIsAdminAuth(false)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+        <button onClick={() => { if (_auth) signOut(_auth); }} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">
           <LogOut size={15} /> Logout
         </button>
       </div>
